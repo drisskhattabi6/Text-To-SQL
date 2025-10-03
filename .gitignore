@@ -1,0 +1,5 @@
+DBs/
+__pycache__/
+*zip
+*.db
+chroma_store/
