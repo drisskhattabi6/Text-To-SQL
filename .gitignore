@@ -1,5 +1,10 @@
 DBs/
+BDs/
 __pycache__/
-*zip
+*.zip
 *.db
+*.tar
+*.sql
 chroma_store/
+*.sqlite3
+*.env
