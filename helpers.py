@@ -86,4 +86,3 @@ def get_embeddings(model_choice="hf"):
         return OllamaEmbeddings(model=model_name)
     else:
         raise ValueError("Unknown embedding model choice")
-

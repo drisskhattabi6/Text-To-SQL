@@ -9,7 +9,7 @@ The VectorStoreManager is simplified to expect LangChain Documents or strings.
 """
 
 import re
-import typing as t
+# import typing as t
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, TypedDict
 
@@ -29,15 +29,9 @@ from helpers import (
     call_gemini,
     call_ollama,
     get_embeddings,
-    check_mysql_connection,
-    check_postgres_connection,
 )
 
-# Try chromadb import (raise only when needed)
-try:
-    import chromadb
-except Exception:
-    chromadb = None
+import chromadb
 
 # LangChain imports (used for Document and Chroma wrapper)
 from langchain.vectorstores import Chroma
@@ -54,12 +48,6 @@ except Exception:
             if isinstance(v, (str, int, float, bool)) or v is None:
                 safe[k] = v
         return safe
-    
-from langchain.schema import Document
-try:
-    from langchain_community.vectorstores.utils import filter_complex_metadata
-except ImportError:
-    pass # Already handled by fallback above
 
 
 # ------------------------
@@ -223,7 +211,7 @@ def extract_schema(engine: Engine) -> List[SchemaDocument]:
 
 
 # ------------------------
-# Ingest schema into Chroma (FIXED)
+# Ingest schema into Chroma
 # ------------------------
 def ingest_schema_from_db(
     user: str,
@@ -263,7 +251,7 @@ def ingest_schema_from_db(
     
     print(f"Using embedding model: {embedding_choice}")
 
-    # --- FIX: Explicitly convert SchemaDocument to LangChain Document here ---
+    # convert SchemaDocument to LangChain Document
     lc_docs = []
     for d in schema_docs:
         # Convert content to string and metadata to only include 'table'
@@ -285,7 +273,7 @@ def ingest_schema_from_db(
     return {"ingested_tables": [d.id for d in schema_docs], "count": len(schema_docs)}
 
 # ------------------------
-# NEW FUNCTION: Load or Create Vector DB
+# Load or Create Vector DB
 # ------------------------
 def load_or_create_vector_store(
     user: str,
@@ -324,15 +312,13 @@ def load_or_create_vector_store(
         # 4. Ingest Schema (The slow part, only runs if needed)
         print("Chroma store not found or empty. Ingesting schema...")
         ingest_schema_from_db(user, password, host, port, dbname, db_type, embedding_choice, persist_directory)
-        
-        # Note: ingest_schema_from_db already sets the global VECTOR_STORE
 
     # Expose module-level manager regardless of whether it was loaded or created
     VECTOR_STORE = manager
     return VECTOR_STORE
 
 # ------------------------
-# Retrieval helper (Simplified)
+# Retrieval helper
 # ------------------------
 # (retrieve_schema_context function remains unchanged)
 def retrieve_schema_context(user_query: str, top_k: int = 10) -> str:
@@ -363,7 +349,7 @@ def retrieve_schema_context(user_query: str, top_k: int = 10) -> str:
     return joined
 
 # ------------------------
-# LangGraph node types and logic (No change)
+# LangGraph node types and logic 
 # ------------------------
 # (AgentState, SQL_PROMPT_TEMPLATE, generate_sql, execute_sql, build_graph, and app remain unchanged)
 
@@ -498,7 +484,7 @@ def execute_sql(state: AgentState) -> AgentState:
     return state
 
 # ------------------------
-# Build LangGraph flow (No change)
+# Build LangGraph flow 
 # ------------------------
 def build_graph():
     graph = StateGraph(AgentState)
@@ -509,5 +495,5 @@ def build_graph():
     graph.set_finish_point("execute_sql")
     return graph.compile()
 
-# compiled app (call app.invoke(state_dict) from streamlit)
+# compiled app
 app = build_graph()
