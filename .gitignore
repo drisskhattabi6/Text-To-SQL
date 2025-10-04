@@ -8,3 +8,5 @@ __pycache__/
 chroma_store/
 *.sqlite3
 *.env
+test.py 
+.env

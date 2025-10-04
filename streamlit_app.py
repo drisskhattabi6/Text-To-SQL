@@ -205,8 +205,9 @@ if st.button("Run Query"):
             final_state = app.invoke(inputs)
 
         # Display results...
-        st.markdown("##### Generated SQL")
-        st.code(final_state.get("sql", "No SQL generated."), language="sql")
+        # st.markdown("##### Generated SQL")
+        with st.expander("Generated SQL") :
+            st.code(final_state.get("sql", "No SQL generated."), language="sql")
 
         st.markdown("##### Query Result")
         result = final_state.get("result")
