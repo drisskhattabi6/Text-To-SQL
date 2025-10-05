@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 from ai_agent import app, load_or_create_vector_store, ingest_schema_from_db, CHROMA_DEFAULT_DIR, VectorStoreManager
 from helpers import check_mysql_connection, check_postgres_connection
-import ai_agent # Kept for explicit calls
+# import ai_agent
 
 st.set_page_config(page_title="Chat with DB", layout="wide")
 st.sidebar.title("Chat with DB")
