@@ -1,6 +1,8 @@
 # streamlit_app.py
 import streamlit as st
 import pandas as pd
+import numpy as np
+import altair as alt
 from ai_agent import app, load_or_create_vector_store, ingest_schema_from_db, CHROMA_DEFAULT_DIR, VectorStoreManager
 from helpers import check_mysql_connection, check_postgres_connection
 # import ai_agent
@@ -16,6 +18,10 @@ if 'schema_ingested' not in st.session_state:
     st.session_state.schema_ingested = False
 if 'db_details' not in st.session_state:
     st.session_state.db_details = {}
+if 'df_query_result' not in st.session_state:
+    st.session_state.df_query_result = pd.DataFrame()
+if 'generated_sql' not in st.session_state: # 🆕 Store SQL persistently too!
+    st.session_state.generated_sql = ""
 
 
 # --- Streamlit Caching for Vector Store ---
@@ -159,11 +165,9 @@ if st.session_state.connection_successful:
 else:
     st.sidebar.warning("Connect to the DB first to load the schema context.")
 
-
-# -------------------------
-# Main: User Query
-# -------------------------
-# st.subheader("💬 Ask a Question in Natural Language")
+# -----------------------------------------------------------------
+# 💬 AI Agent Query Section
+# -----------------------------------------------------------------
 query = st.text_area("Enter your request:", height=68)
 
 if st.button("Run Query"):
@@ -174,7 +178,7 @@ if st.button("Run Query"):
     elif not st.session_state.schema_ingested:
         st.error("Please ensure the schema context is loaded/ingested successfully.")
     else:
-        # 1. Create a dictionary with ONLY the required arguments for check_connection
+        # 1. Create a dictionary with ONLY the required arguments for connection check
         db_creds = {
             "user": st.session_state.db_details['user'],
             "password": st.session_state.db_details['password'],
@@ -186,32 +190,259 @@ if st.button("Run Query"):
         # 2. Get the correct checking function
         check_func = check_postgres_connection if st.session_state.db_details['db_type'] == "Postgres" else check_mysql_connection
         
-        # 3. Perform the connection check using only the cleaned dictionary
+        # 3. Perform the connection check
         if not check_func(**db_creds):
             st.error("Database connection failed during query execution. Please recheck credentials.")
             st.stop()
             
-        # Prepare inputs for AI agent (This part is fine as the agent expects all details)
+        # Prepare inputs for AI agent (Assuming 'app' is your application)
         inputs = {
             "query": query,
             "llm_choice": llm_choice,
             "embedding_choice": embedding_choice,
-            # Pass all DB details for the execute_sql node to use
             **st.session_state.db_details
         }
 
         with st.spinner("Running AI Agent (Generating SQL and Executing)..."):
-            # Invoke AI Agent
             final_state = app.invoke(inputs)
 
-        # Display results...
-        # st.markdown("##### Generated SQL")
-        with st.expander("Generated SQL") :
-            st.code(final_state.get("sql", "No SQL generated."), language="sql")
-
-        st.markdown("##### Query Result")
+        # Get results
+        sql = final_state.get("sql", "No SQL generated.")
         result = final_state.get("result")
+
+        # --- FIX: Store both SQL and DataFrame in session state ---
+        st.session_state.generated_sql = sql
+        
         if isinstance(result, list) and result:
-            st.dataframe(pd.DataFrame(result))
+            df = pd.DataFrame(result)
+            st.session_state.df_query_result = df
         else:
-            st.write(result)
+            st.session_state.df_query_result = pd.DataFrame()
+            if result:
+                st.warning(f"Query returned a non-tabular result: {result}")
+            else:
+                st.info("Query executed successfully but returned no rows.")
+
+
+# -----------------------------------------------------------------
+# 💾 Persistent Query Output (NEW LOCATION FOR TABLE & SQL)
+# -----------------------------------------------------------------
+
+if st.session_state.generated_sql:
+    # Display SQL persistently
+    with st.expander("Generated SQL") :
+        st.code(st.session_state.generated_sql, language="sql")
+
+if not st.session_state.df_query_result.empty:
+    # Display DataFrame persistently
+    st.markdown("##### Query Result")
+    st.dataframe(st.session_state.df_query_result)
+    
+# -----------------------------------------------------------------
+# 📈 Data Visualization Section - Functions (UNCHANGED)
+# -----------------------------------------------------------------
+
+# Helper function to get columns by data type
+def get_column_options(df, dtype_filter='number'):
+    """Filters dataframe columns based on a list of pandas dtypes."""
+    if dtype_filter == 'number':
+        return df.select_dtypes(include=np.number).columns.tolist()
+    elif dtype_filter == 'categorical':
+        return df.select_dtypes(include=['object', 'category']).columns.tolist()
+    elif dtype_filter == 'temporal':
+        return df.select_dtypes(include=['datetime', 'timedelta']).columns.tolist()
+    return df.columns.tolist()
+
+# Plotting function using Altair for flexibility and type-checking
+def create_altair_plot(df, x_col, y_col, chart_type, color_col=None):
+    """Creates an Altair chart based on user selection and chart type."""
+    
+    requires_y = chart_type in ["Scatter", "Line", "Bar", "Area", "Box Plot"]
+    if requires_y and (not x_col or not y_col):
+        st.info("Please select both X-axis and Y-axis columns.")
+        return
+    elif chart_type == "Histogram" and not x_col:
+        st.info("Please select the X-axis column.")
+        return
+
+    x_dtype = 'Q' if x_col and df[x_col].dtype.kind in 'fi' else 'N'
+    y_dtype = 'Q' if y_col and df[y_col].dtype.kind in 'fi' else 'N'
+    
+    base = alt.Chart(df).interactive()
+    chart = None
+
+    if chart_type == "Scatter":
+        if not (x_dtype == 'Q' and y_dtype == 'Q'):
+            st.warning("Scatter Plot requires two **numeric** (Quantitative) columns.")
+            return
+        chart = base.mark_circle().encode(
+            x=alt.X(f'{x_col}:Q', title=x_col),
+            y=alt.Y(f'{y_col}:Q', title=y_col),
+            color=color_col if color_col else alt.value("steel blue"),
+            tooltip=[x_col, y_col]
+        ).properties(title='Scatter Plot')
+        
+    elif chart_type == "Bar":
+        if not (x_dtype == 'N' and y_dtype == 'Q'):
+            st.warning("Bar Chart requires a **Categorical** X-axis and a **Numeric** Y-axis.")
+            return
+        chart = base.mark_bar().encode(
+            x=alt.X(f'{x_col}:N', title=x_col),
+            y=alt.Y(f'{y_col}:Q', title=y_col),
+            color=x_col if color_col else alt.value("teal"),
+            tooltip=[x_col, y_col]
+        ).properties(title='Bar Chart')
+        
+    elif chart_type == "Line":
+        if not (y_dtype == 'Q'):
+            st.warning("Line Chart requires a **Numeric** Y-axis.")
+            return
+        chart = base.mark_line().encode(
+            x=alt.X(f'{x_col}', title=x_col), 
+            y=alt.Y(f'{y_col}:Q', title=y_col),
+            color=color_col if color_col else alt.value("blue"),
+            tooltip=[x_col, y_col]
+        ).properties(title='Line Chart')
+
+    elif chart_type == "Area":
+        if not (y_dtype == 'Q'):
+            st.warning("Area Chart requires a **Numeric** Y-axis.")
+            return
+        chart = base.mark_area().encode(
+            x=alt.X(f'{x_col}', title=x_col), 
+            y=alt.Y(f'{y_col}:Q', title=y_col),
+            color=color_col if color_col else alt.value("lightblue"),
+            tooltip=[x_col, y_col]
+        ).properties(title='Area Chart')
+        
+    elif chart_type == "Histogram":
+        if not (x_dtype == 'Q'):
+            st.warning("Histogram requires the X-axis to be a **single numeric** (Quantitative) column.")
+            return
+        chart = base.mark_bar().encode(
+            x=alt.X(f'{x_col}:Q', bin=True, title=x_col), 
+            y=alt.Y('count()', title='Frequency'), 
+            color=alt.value("darkgreen"),
+            tooltip=[x_col, 'count()']
+        ).properties(title=f'Histogram of {x_col}')
+
+    elif chart_type == "Box Plot":
+        if not (x_dtype == 'N' and y_dtype == 'Q'):
+            st.warning("Box Plot requires a **Categorical** X-axis and a **Numeric** Y-axis.")
+            return
+        chart = base.mark_boxplot(extent="min-max").encode(
+            x=alt.X(f'{x_col}:N', title=x_col),
+            y=alt.Y(f'{y_col}:Q', title=y_col),
+            color=alt.value("purple"),
+            tooltip=[x_col, y_col]
+        ).properties(title='Box Plot')
+        
+    else:
+        st.error("Invalid chart type selected.")
+        return
+
+    if chart:
+        st.altair_chart(chart, use_container_width=True)
+
+# -----------------------------------------------------------------
+# 📈 Data Visualization Section - UI
+# -----------------------------------------------------------------
+
+df = st.session_state.df_query_result 
+
+if not df.empty:
+    st.markdown("---")
+    st.markdown("### 📈 Data Visualization")
+    
+    # Create tabs for different plot types
+    tab_scatter, tab_bar, tab_line, tab_area, tab_hist, tab_box = st.tabs([
+        "Scatter Plot", "Bar Chart", "Line Chart", "Area Chart", "Histogram", "Box Plot"
+    ])
+
+    # Define column sets based on type for better UX
+    numeric_cols = get_column_options(df, 'number')
+    categorical_cols = get_column_options(df, 'categorical')
+    all_cols = df.columns.tolist()
+
+    # --- Scatter Plot Tab (Requires 2 Numeric) ---
+    with tab_scatter:
+        st.markdown("A **Scatter Plot** shows the relationship between two **numeric** variables.")
+        if len(numeric_cols) < 2:
+            st.warning("Scatter plots require at least two numeric columns.")
+        else:
+            col1, col2 = st.columns(2)
+            with col1:
+                scatter_x = st.selectbox("X-axis (Numeric)", numeric_cols, key="scatter_x", index=0)
+            with col2:
+                default_y_index = (numeric_cols.index(scatter_x) + 1) % len(numeric_cols) if scatter_x in numeric_cols and len(numeric_cols) > 1 else 0
+                scatter_y = st.selectbox("Y-axis (Numeric)", numeric_cols, index=default_y_index, key="scatter_y")
+            
+            create_altair_plot(df, scatter_x, scatter_y, "Scatter")
+
+    # --- Bar Chart Tab (Requires 1 Categorical X, 1 Numeric Y) ---
+    with tab_bar:
+        st.markdown("A **Bar Chart** compares categories (X-axis) against a measure (Y-axis).")
+        if not categorical_cols or not numeric_cols:
+            st.warning("Bar charts require at least one categorical and one numeric column.")
+        else:
+            col3, col4 = st.columns(2)
+            with col3:
+                bar_x = st.selectbox("X-axis (Categorical)", categorical_cols, key="bar_x")
+            with col4:
+                bar_y = st.selectbox("Y-axis (Numeric)", numeric_cols, key="bar_y")
+            
+            create_altair_plot(df, bar_x, bar_y, "Bar")
+
+
+    # --- Line Chart Tab (Requires 1 Ordered X, 1 Numeric Y) ---
+    with tab_line:
+        st.markdown("A **Line Chart** is best for showing trends over an ordered variable (like time or sequence).")
+        if not numeric_cols:
+             st.warning("Line charts require at least one numeric column for the Y-axis.")
+        else:
+            col5, col6 = st.columns(2)
+            with col5:
+                line_x = st.selectbox("X-axis (Ordered/Time)", all_cols, key="line_x")
+            with col6:
+                default_y_index = all_cols.index(numeric_cols[0]) if numeric_cols else 0
+                line_y = st.selectbox("Y-axis (Numeric)", all_cols, index=default_y_index, key="line_y")
+
+            create_altair_plot(df, line_x, line_y, "Line")
+            
+    # --- Area Chart Tab (Requires 1 Ordered X, 1 Numeric Y) ---
+    with tab_area:
+        st.markdown("An **Area Chart** is similar to a Line Chart, emphasizing the total magnitude.")
+        if not numeric_cols:
+             st.warning("Area charts require at least one numeric column for the Y-axis.")
+        else:
+            col7, col8 = st.columns(2)
+            with col7:
+                area_x = st.selectbox("X-axis (Ordered/Time)", all_cols, key="area_x")
+            with col8:
+                default_y_index = all_cols.index(numeric_cols[0]) if numeric_cols else 0
+                area_y = st.selectbox("Y-axis (Numeric)", all_cols, index=default_y_index, key="area_y")
+
+            create_altair_plot(df, area_x, area_y, "Area")
+
+    # --- Histogram Tab (Requires 1 Numeric X) ---
+    with tab_hist:
+        st.markdown("A **Histogram** shows the frequency distribution of a **single numeric** column.")
+        if not numeric_cols:
+            st.warning("Histograms require at least one numeric column.")
+        else:
+            hist_x = st.selectbox("Column to Plot (Numeric)", numeric_cols, key="hist_x")
+            create_altair_plot(df, hist_x, None, "Histogram")
+
+    # --- Box Plot Tab (Requires 1 Categorical X, 1 Numeric Y) ---
+    with tab_box:
+        st.markdown("A **Box Plot** compares the distribution and outliers of a numeric variable across categories.")
+        if not categorical_cols or not numeric_cols:
+            st.warning("Box plots require at least one categorical and one numeric column.")
+        else:
+            col9, col10 = st.columns(2)
+            with col9:
+                box_x = st.selectbox("X-axis (Category)", categorical_cols, key="box_x")
+            with col10:
+                box_y = st.selectbox("Y-axis (Numeric)", numeric_cols, key="box_y")
+            
+            create_altair_plot(df, box_x, box_y, "Box Plot")

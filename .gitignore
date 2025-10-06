@@ -1,10 +1,6 @@
 DBs/
-BDs/
-BDs
 __pycache__/*
 __pycache__
-/__pycache__/*
-/__pycache__
 *.pyc
 *.zip
 *.db
@@ -12,8 +8,6 @@ __pycache__
 *.sql
 chroma_store/
 chroma_store/*
-/chroma_store/*
-/chroma_store/
 *.sqlite3
 *.env
 test.py
