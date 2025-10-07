@@ -3,6 +3,10 @@
 
 A powerful web application that transforms natural language questions into executable SQL queries against a PostgreSQL or MySQL database and visualizes the results. This project uses **LangChain** and **Streamlit** to provide a complete, end-to-end Chat With DB experience.
 
+Demo :
+
+![Demo](imgs/demo.gif)
+
 ---
 
 ## ✨ Features
@@ -25,8 +29,8 @@ You will need **Python 3.9+** and a running **PostgreSQL** or **MySQL** server t
 ### 2. Clone the Repository
 
 ```bash
-git clone <YOUR_REPO_URL>
-cd nl2sql
+git clone https://github.com/drisskhattabi6/Text-To-SQL
+cd Text-To-SQL
 ```
 
 ### 3. Setup Ollama (for Local Embeddings)
@@ -50,20 +54,40 @@ ollama pull nomic-embed-text:latest
 
 It's highly recommended to use a virtual environment.
 
-```Bash
-# Create and activate environment
-python -m venv venv
-source venv/bin/activate  # On Windows, use: .\venv\Scripts\activate
+- Create and activate environment for Windows
 
+```Bash
+python -m venv venv
+source venv/bin/activate 
+```
+
+- Create and activate environment for Windows
+
+```Bash
+python -m venv venv
+./venv/Scripts/activate
+```
+
+- Install dependencies
+
+```Bash
 # Install dependencies
 pip install -r requirements.txt
 ```
 
-(Note: Ensure your requirements.txt includes streamlit, pandas, numpy, altair, langchain, psycopg2-binary (for Postgres), pymysql (for MySQL), and langchain-community for the Ollama integration.)
+(Note: Ensure your requirements.txt includes streamlit, pandas, numpy, altair, langchain, psycopg2-binary (for Postgres), pymysql (for MySQL), and langchain-community for the Ollama integration and chromadb for the vector store.)
 
 ### 5. API Key Configuration (for LLM)
 
 This project requires a large language model (LLM) API key (e.g., OpenAI, Gemini, etc.) for query generation. Set it as an environment variable:
+
+- first rename '.env.example' to '.env'
+
+```Bash
+mv .env.example .env
+```
+
+- the set the API keys as environment variables
 
 ```Bash
 export OPENAI_API_KEY='your_openai_key'
@@ -71,6 +95,7 @@ export OPENAI_API_KEY='your_openai_key'
 export GEMINI_API_KEY='your_gemini_key' 
 ```
 
+If you want to use Ollama, you need to install a llm aside embedding model.
 
 ## 🚀 Usage
 
@@ -99,18 +124,15 @@ The application will display the generated SQL and the resulting data table.
 
 Below the result table, use the Data Visualization tabs to interactively select columns and generate various charts (Bar, Scatter, Line, etc.) based on the query results.
 
-## 🖼️ Screenshots & Demos
+## 🖼️ Screenshots
 
+![Img Example 1](imgs/img1.png)
 
-Application Showcase
+![Img Example 2](imgs/img2.png)
 
-![]()
+![PostgreSQL](imgs/postgresql.png)
 
-![]()
-
-![]()
-
-![]()
+![MySQL](imgs/mysql.png)
 
 ## ⚙️ Project Structure (Simplified)
 
@@ -120,7 +142,8 @@ Text-To-SQL/
 ├── ai_agents/            # AI Agent with LangGraph, The core logic for generating SQL
 ├── helpers.py            # Database connection and schema fetching helpers
 ├── chroma_store/         # Local directory for the vector store
-└── requirements.txt      # Python dependencies
+├── requirements.txt      # Python dependencies
+└── .env/                 # API keys for LLM
 ```
 
 ## 🤝 Contributing
