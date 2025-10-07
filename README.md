@@ -149,3 +149,17 @@ Text-To-SQL/
 ## 🤝 Contributing
 
 Contributions are welcome! Feel free to fork the repository, make improvements, and submit a pull request.
+
+
+## DB Examples
+
+Here you can Find some DB examples for testing the application.
+
+### PostgreSQL
+
+- https://neon.com/postgresql/postgresql-getting-started/postgresql-sample-database
+- https://github.com/neondatabase-labs/postgres-sample-dbs
+
+
+### MySQL
+- https://dev.mysql.com/doc/index-other.html
