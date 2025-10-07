@@ -220,7 +220,6 @@ def ingest_schema_from_db(
     port: str,
     dbname: str,
     db_type: str,
-    embedding_choice: str = "hf",
     persist_directory: str = CHROMA_DEFAULT_DIR
 ):
     """
@@ -245,11 +244,9 @@ def ingest_schema_from_db(
     # Note: If called from load_or_create, EMBEDDING_MODEL might already be set.
     global EMBEDDING_MODEL
     if EMBEDDING_MODEL is None:
-        EMBEDDING_MODEL = get_embeddings(model_choice=embedding_choice)
+        EMBEDDING_MODEL = get_embeddings()
         if EMBEDDING_MODEL is None:
             raise RuntimeError("Failed to instantiate embedding model")
-    
-    print(f"Using embedding model: {embedding_choice}")
 
     # convert SchemaDocument to LangChain Document
     lc_docs = []
@@ -282,7 +279,6 @@ def load_or_create_vector_store(
     port: str,
     dbname: str,
     db_type: str,
-    embedding_choice: str = "hf",
     persist_directory: str = CHROMA_DEFAULT_DIR
 ):
     """
@@ -296,7 +292,7 @@ def load_or_create_vector_store(
 
     # 1. Initialize Embedding Model (Needed for both loading and ingesting)
     if EMBEDDING_MODEL is None:
-        EMBEDDING_MODEL = get_embeddings(model_choice=embedding_choice)
+        EMBEDDING_MODEL = get_embeddings()
         if EMBEDDING_MODEL is None:
             raise RuntimeError("Failed to instantiate embedding model")
             
@@ -311,7 +307,7 @@ def load_or_create_vector_store(
     else:
         # 4. Ingest Schema (The slow part, only runs if needed)
         print("Chroma store not found or empty. Ingesting schema...")
-        ingest_schema_from_db(user, password, host, port, dbname, db_type, embedding_choice, persist_directory)
+        ingest_schema_from_db(user, password, host, port, dbname, db_type, persist_directory)
 
     # Expose module-level manager regardless of whether it was loaded or created
     VECTOR_STORE = manager
@@ -359,7 +355,6 @@ class AgentState(TypedDict):
     result: Optional[str]
     db_uri: str
     llm_choice: str
-    embedding_choice: str
     user: str
     password: str
     host: str

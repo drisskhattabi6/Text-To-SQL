@@ -2,7 +2,7 @@ import os
 import ollama
 import google.generativeai as genai
 from openai import OpenAI
-from langchain_huggingface import HuggingFaceEmbeddings
+# from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_ollama import OllamaEmbeddings
 import pymysql
 import psycopg2
@@ -77,12 +77,18 @@ def call_ollama(prompt, model="llama3"):
     response = ollama.chat(model=model, messages=[{"role": "user", "content": prompt}])
     return response["message"]["content"]
 
-def get_embeddings(model_choice="hf"):
-    if model_choice == "hf":
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-        return HuggingFaceEmbeddings(model_name=model_name)
-    elif model_choice == "ollama":
-        model_name="mxbai-embed-large:latest"
-        return OllamaEmbeddings(model=model_name)
-    else:
-        raise ValueError("Unknown embedding model choice")
+def get_embeddings():
+    model_name="mxbai-embed-large:latest"
+    return OllamaEmbeddings(model=model_name)
+
+    
+# def get_embeddings(model_choice="hf"):
+#     if model_choice == "hf":
+#         model_name="sentence-transformers/all-MiniLM-L6-v2"
+#         return HuggingFaceEmbeddings(model_name=model_name)
+#     elif model_choice == "ollama":
+#         model_name="mxbai-embed-large:latest"
+#         return OllamaEmbeddings(model=model_name)
+#     else:
+#         raise ValueError("Unknown embedding model choice")
+

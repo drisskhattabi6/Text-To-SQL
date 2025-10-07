@@ -27,7 +27,7 @@ if 'generated_sql' not in st.session_state: # 🆕 Store SQL persistently too!
 # --- Streamlit Caching for Vector Store ---
 # This function will run ONCE per Streamlit session (or until credentials/params change)
 @st.cache_resource(show_spinner=False)
-def setup_vector_store_cached(db_details: dict, embedding_choice: str, force_reingest: bool = False):
+def setup_vector_store_cached(db_details: dict, force_reingest: bool = False):
     """Caches the heavy operation of loading or creating the vector store."""
     
     # If forced re-ingestion, invalidate the cache explicitly before running.
@@ -43,7 +43,6 @@ def setup_vector_store_cached(db_details: dict, embedding_choice: str, force_rei
             port=db_details.get('port'),
             dbname=db_details.get('dbname'),
             db_type=db_details.get('db_type'),
-            embedding_choice=embedding_choice,
             persist_directory=CHROMA_DEFAULT_DIR
         )
 
@@ -56,7 +55,6 @@ def setup_vector_store_cached(db_details: dict, embedding_choice: str, force_rei
         port=db_details.get('port'),
         dbname=db_details.get('dbname'),
         db_type=db_details.get('db_type'),
-        embedding_choice=embedding_choice,
         persist_directory=CHROMA_DEFAULT_DIR
     )
     return vector_store_manager
@@ -112,7 +110,7 @@ if st.sidebar.button("Check Connection & Save Credentials"):
 
 st.sidebar.header("AI Configuration")
 llm_choice = st.sidebar.selectbox("Choose LLM", ["gemini", "openai", "ollama"])
-embedding_choice = st.sidebar.selectbox("Embedding Model", ["ollama", "hf"])
+# embedding_choice = st.sidebar.selectbox("Embedding Model", ["ollama", "hf"])
 
 # -------------------------
 # Schema Ingestion/Loading/Re-Ingestion Area (The new button is here)
@@ -138,7 +136,6 @@ if st.session_state.connection_successful:
                 # and calls ingest_schema_from_db directly.
                 result = setup_vector_store_cached(
                     st.session_state.db_details,
-                    embedding_choice,
                     force_reingest=force_ingest_button
                 )
             
@@ -199,7 +196,6 @@ if st.button("Run Query"):
         inputs = {
             "query": query,
             "llm_choice": llm_choice,
-            "embedding_choice": embedding_choice,
             **st.session_state.db_details
         }
 
