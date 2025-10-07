@@ -117,8 +117,10 @@ llm_choice = st.sidebar.selectbox("Choose LLM", ["gemini", "openai", "ollama"])
 # -------------------------
 if st.session_state.connection_successful:
     
+    st.sidebar.warning("Connect to the DB first to load the schema context.")
     # 1. ADD THE RE-INGEST BUTTON
     col1, col2 = st.sidebar.columns([1, 2])
+
     force_ingest_button = col1.button("Re-Ingest Schema", help="Force deletion and re-creation of the vector database (slow operation).")
     
     # Check if we should attempt to load/ingest

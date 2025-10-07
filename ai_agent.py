@@ -360,10 +360,11 @@ class AgentState(TypedDict):
     host: str
     port: str
     dbname: str
-    db_type: str
+    db_type: str  # e.g., "postgres", "mysql", "sqlite"
 
 SQL_PROMPT_TEMPLATE = """
 You are an expert SQL developer. Use only the provided database schema information to generate a single, valid SQL SELECT query (no explanations).
+
 Schema context:
 {schema_context}
 
@@ -372,9 +373,11 @@ User request:
 
 Constraints:
 - Use only tables/columns present in schema_context.
-- Output a single SELECT statement (no multiple statements).
-- If the user requests counts/aggregations, use appropriate SQL aggregations.
-- If you are unsure about types, avoid unsafe casts.
+- Output a single SELECT statement (no multiple statements or scripts).
+- If the user requests counts/aggregations, use appropriate SQL aggregations (SUM, COUNT, AVG, etc.).
+- Avoid unsafe casts if types are unclear.
+- Format your SQL properly and use consistent aliases.
+{db_specific_constraints}
 """
 
 def generate_sql(state: AgentState) -> AgentState:
@@ -390,7 +393,23 @@ def generate_sql(state: AgentState) -> AgentState:
         print("[ai_agent] WARNING: No schema context retrieved. Check ingestion.")
         schema_context = "No relevant schema found. The database connection might be wrong or ingestion failed."
     
-    prompt = SQL_PROMPT_TEMPLATE.format(schema_context=schema_context, user_query=query)
+    # Add DB-specific constraints
+    db_type = state.get("db_type", "").lower()
+    if db_type == "postgres":
+        db_specific_constraints = (
+            "- Since this is PostgreSQL, wrap all table and column identifiers in double quotes \"\" "
+            "to preserve case-sensitivity.\n"
+            "- For example, SELECT \"ColumnName\" FROM \"TableName\".\n"
+            "- Ensure the SQL works for PostgreSQL syntax."
+        )
+    else:
+        db_specific_constraints = ""
+
+    prompt = SQL_PROMPT_TEMPLATE.format(
+        schema_context=schema_context,
+        user_query=query,
+        db_specific_constraints=db_specific_constraints
+    )
 
     print("[ai_agent] Generated prompt:", prompt)
 
@@ -407,6 +426,7 @@ def generate_sql(state: AgentState) -> AgentState:
     print("[ai_agent] Generated SQL:", sql_out)
     state["sql"] = sql_out
     return state
+
 
 def execute_sql(state: AgentState) -> AgentState:
     """LangGraph node: execute SQL via pymysql or psycopg2 using credentials passed in state."""
