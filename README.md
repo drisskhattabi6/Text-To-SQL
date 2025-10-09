@@ -71,7 +71,6 @@ python -m venv venv
 - Install dependencies
 
 ```Bash
-# Install dependencies
 pip install -r requirements.txt
 ```
 
