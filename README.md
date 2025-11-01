@@ -1,9 +1,11 @@
 
-# 🚀 - Chat With DB - Text-To-SQL AI Agent (Streamlit & LangChain)
+# Chat With DB - Text-To-SQL AI Agent (Streamlit & LangChain)
 
 A powerful web application that transforms natural language questions into executable SQL queries against a PostgreSQL or MySQL database and visualizes the results. This project uses **LangChain** and **Streamlit** to provide a complete, end-to-end Chat With DB experience.
 
 Demo :
+
+![text2sql](imgs/text2sql.png)
 
 ![Demo](imgs/demo.gif)
 
